@@ -1,0 +1,7 @@
+# Environment file
+.env
+
+# VS Code
+/.vscode
+
+
