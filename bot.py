@@ -29,33 +29,60 @@ def get_channel(guild, name, voice=False):
 async def on_ready():
     print(f'{bot.user.name} online')
 
-@bot.command(name='start-vote')
-async def start_scoring(ctx, *args):
+@bot.command(name='start-score')
+async def start_score(ctx, *args):
+    # Args
     if len(args) == 0:
-        await ctx.send("Usage: !start-vote <initial/final>")
+        await ctx.send("Usage: !start-score <initial/final>")
         return
     elif args[0] not in ['initial', 'final']:
-        await ctx.send("Usage: !start-vote <initial/final>")
+        await ctx.send("Usage: !start-score <initial/final>")
         return    
+    mode = args[0].lower()
 
-    args[0] = args[0].lower()
-
+    # Setup
     guild = get_guild()
-
     general_channel = get_channel(guild, 'general')
-    await general_channel.send("{} scoring has begun.".format(args[0].capitalize()))
-
     scores_channel = get_channel(guild, 'scores')
-    await scores_channel.send("**{}**".format(args[0].capitalize()))
-
     general_voice_channel = get_channel(guild, 'General', voice=True)
+
+    # Participants
     participants = general_voice_channel.members
 
+    if not participants:
+        await general_channel.send("No participants.")
+        return
+
+    # Start
+    await general_channel.send("{} scoring has started.".format(mode.capitalize()))
+    await scores_channel.send("**{}**".format(mode.capitalize()))
+
+    # Scoring
     for p in participants:
         channel = await p.create_dm()
         await channel.send("Please DM me your {} score.".format(args[0]))
-
     await general_channel.send("Waiting for everyone to give a score.")
+    
+    remaining = [p.name for p in participants]
+    scores = {}
+    def check(message):
+        if isinstance(message.channel, discord.channel.DMChannel):
+            try:
+                score = float(message.content)    
+            except ValueError:
+                return False
+            if message.author.name in remaining:
+                remaining.remove(message.author.name)
+                scores[message.author.name] = score
+        if not remaining:
+            return True
+        return False
 
+    await bot.wait_for('message', check=check)
+
+    # Finish
+    await general_channel.send("{} scoring has finished.".format(mode.capitalize()))
+    for k,v in scores.items():
+        await scores_channel.send("**{0}**: {1:3.1f}".format(k, v))
 
 bot.run(TOKEN)
