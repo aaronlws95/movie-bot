@@ -103,7 +103,7 @@ async def start_score(ctx, *args):
     if mode == 'final':
         for p in participants:
             row_value = "{}|{:.2f}".format(title, scores[p.name])
-            utils.movie.append_csv_to_sheets(row_value, p.name.lower())
+            utils.movie.append_csv_to_sheets(row_value, p.name)
             with open(utils.movie.ROOT + "/{}.csv".format(p.name.lower()), 'a') as f:
                 f.write(row_value + "\n")
 
