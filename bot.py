@@ -50,7 +50,7 @@ async def start_score(ctx, *args):
                 participants.append(member)
 
         if not participants:
-            await bot_info_channel.send("Cannot find participants.")
+            await bot_info_channel.send("Cannot find participants")
             return
     else:
         participants = general_voice_channel.members
@@ -62,7 +62,7 @@ async def start_score(ctx, *args):
             return
 
     # Start
-    await bot_info_channel.send("{} scoring has started.".format(mode.capitalize()))
+    await bot_info_channel.send("{} scoring has started".format(mode.capitalize()))
     title, year, chooser = utils.movie.get_next_movie()
     if mode == 'initial':
         date = datetime.today().strftime('%d/%m/%Y')
@@ -73,8 +73,8 @@ async def start_score(ctx, *args):
     # Scoring
     for p in participants:
         channel = await p.create_dm()
-        await channel.send("Please DM me your {} score.".format(args[0]))
-    await bot_info_channel.send("Waiting for everyone to give a score.")
+        await channel.send("Please DM me your {} score".format(args[0]))
+    await bot_info_channel.send("Waiting for everyone to give a score")
 
     remaining = [p.name for p in participants]
     scores = {}
@@ -94,7 +94,7 @@ async def start_score(ctx, *args):
     await bot.wait_for('message', check=check)
 
     # Finish
-    await bot_info_channel.send("{} scoring has finished.".format(mode.capitalize()))
+    await bot_info_channel.send("{} scoring has finished".format(mode.capitalize()))
     for k,v in scores.items():
         await scores_channel.send("**{}**: {:.2f}".format(k, v))
 
@@ -130,7 +130,7 @@ async def choose_next_movie(ctx, *args):
     await bot_info_channel.send("Searching for next movie")
     await bot_info_channel.send("'Y' to select movie")
     await bot_info_channel.send("'EXIT' to cancel search")
-    await bot_info_channel.send("Input anything else to continue search.")
+    await bot_info_channel.send("Input anything else to continue search")
 
     def check(message):
         if message.channel == ctx.channel:
@@ -143,20 +143,20 @@ async def choose_next_movie(ctx, *args):
             msg = await bot.wait_for('message', check=check)
             if msg.content.upper() == 'Y':
                 utils.movie.update_next_movie(c['title'], c['year'], chooser)
-                await bot_info_channel.send("Yo we watching {}.".format(c['long imdb title']))
-                return
+                await bot_info_channel.send("Yo we watching {}".format(c['long imdb title']))
+                return`
             elif msg.content.upper() == 'EXIT':
                 await bot_info_channel.send("Exiting search")
                 return
 
-    await bot_info_channel.send("No movie found, please manually add: !choose-next-movie \"<title>\" <year> <chooser>.")
+    await bot_info_channel.send("No movie found, please manually add: !choose-next-movie \"<title>\" <year> <chooser>")
 
 @bot.command(name='next-movie')
 async def next_movie(ctx):
     guild = utils.bot.get_guild(bot, GUILD)
     bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
     title, year, _ = utils.movie.get_next_movie()
-    await bot_info_channel.send("We are watching {} ({}).".format(title, year))
+    await bot_info_channel.send("We are watching {} ({})".format(title, year))
 
 @bot.command(name='fuck')
 async def random_next_movie_info(ctx):
@@ -180,7 +180,7 @@ async def score(ctx, *args):
     bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
 
     if len(args) != 2:
-        await bot_info_channel.send("Usage: !score \"<title>\" <username>.")
+        await bot_info_channel.send("Usage: !score \"<title>\" <username>")
 
     title = args[0]
     name = args[1]
