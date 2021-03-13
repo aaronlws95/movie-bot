@@ -27,10 +27,10 @@ async def on_ready():
 async def start_score(ctx, *args):
     # Args
     if len(args) == 0:
-        await ctx.send("Usage: [!start-score <initial/final>]")
+        await ctx.send("Usage: !start-score <initial/final>")
         return
     elif args[0] not in ['initial', 'final']:
-        await ctx.send("Usage: [!start-score <initial/final>]")
+        await ctx.send("Usage: !start-score <initial/final>")
         return
     mode = args[0].lower()
 
@@ -58,7 +58,7 @@ async def start_score(ctx, *args):
         if not participants:
             await bot_info_channel.send(
                 "Cannot find participants in voice channel. \
-                    Try [!start-score <person1> <person2> ... <personN>]")
+                    Try !start-score <person1> <person2> ... <personN>")
             return
 
     # Start
@@ -142,14 +142,14 @@ async def choose_next_movie(ctx, *args):
             await bot_info_channel.send("Did you mean {}?".format(c['long imdb title']))
             msg = await bot.wait_for('message', check=check)
             if msg.content.upper() == 'Y':
-                update_next_movie(c['title'], c['year'], chooser)
+                utils.movie.update_next_movie(c['title'], c['year'], chooser)
                 await bot_info_channel.send("Yo we watching {}.".format(c['long imdb title']))
                 return
             elif msg.content.upper() == 'EXIT':
                 await bot_info_channel.send("Exiting search")
                 return
 
-    await bot_info_channel.send("No movie found, please manually add: [!choose-next-movie <title> <year> <chooser>].")
+    await bot_info_channel.send("No movie found, please manually add: !choose-next-movie \"<title>\" <year> <chooser>.")
 
 @bot.command(name='next-movie')
 async def next_movie(ctx):
@@ -175,9 +175,15 @@ async def random_next_movie_info(ctx):
     await bot_info_channel.send(random.choice(message))
 
 @bot.command(name='score')
-async def score(ctx, title, name):
+async def score(ctx, *args):
     guild = utils.bot.get_guild(bot, GUILD)
     bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
+
+    if len(args) != 2:
+        await bot_info_channel.send("Usage: !score \"<title>\" <username>.")
+
+    title = args[0]
+    name = args[1]
 
     member = await utils.bot.get_member(bot_info_channel, name)
     if not member:
