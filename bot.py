@@ -165,7 +165,7 @@ async def random_next_movie_info(ctx):
     title, year, _ = utils.movie.get_next_movie()
     ia = imdb.IMDb()
     movie = ia.search_movie(title)[0]
-    movie = ia.get_movie(movie.getID())
+    ia.update(movie)
     message = [
         "{} is a {} {} movie".format(movie['title'], movie['year'], random.choice(movie['genres'])),
         "{} directed {}".format(random.choice(movie['directors']), movie['title']),
