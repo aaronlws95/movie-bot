@@ -15,15 +15,19 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD = os.getenv('DISCORD_GUILD')
 
 # Bot
+help_command = commands.DefaultHelpCommand(no_category = 'Commands')
 intents = discord.Intents.default()
 intents.members = True
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix='!', intents=intents, help_command=help_command)
 
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} online')
 
-@bot.command(name='start-score')
+@bot.command(name='start-score',
+             brief="Handles the scoring process",
+             description="Run the command to start scoring. The bot will DM you for a response. Unless explicitly given, participants will be taken from whoever is in the General voice channel.",
+             usage="<initial/final> [person1] [person2] ... [personN]")
 async def start_score(ctx, *args):
     # Args
     if len(args) == 0:
@@ -107,7 +111,10 @@ async def start_score(ctx, *args):
             with open(utils.movie.ROOT + "/{}.csv".format(p.name.lower()), 'a') as f:
                 f.write(row_value + "\n")
 
-@bot.command(name='choose-next-movie')
+@bot.command(name='choose-next-movie',
+             brief="Register next movie",
+             description="Adds the next movie to the database. The bot will help you find the movie unless you add the year to the command.",
+             usage="\"<title>\" [year] <chooser>")
 async def choose_next_movie(ctx, *args):
     # Setup guild and channels
     guild = utils.bot.get_guild(bot, GUILD)
@@ -118,7 +125,13 @@ async def choose_next_movie(ctx, *args):
         await ctx.send("Usage: !choose-next-movie \"<title>\" <chooser>")
         return
     if len(args) == 3:
-        utils.movie.update_next_movie(args[0], args[1], args[2])
+        member = await utils.bot.get_member(bot_info_channel, args[1])
+        if member:
+            chooser = member.name
+        else:
+            return
+        utils.movie.update_next_movie(args[0], args[1], chooser)
+        return
 
     # Validate member
     member = await utils.bot.get_member(bot_info_channel, args[1])
@@ -154,14 +167,18 @@ async def choose_next_movie(ctx, *args):
 
     await bot_info_channel.send("No movie found, please manually add: !choose-next-movie \"<title>\" <year> <chooser>")
 
-@bot.command(name='next-movie')
+@bot.command(name='next-movie',
+             brief="Displays the next movie",
+             description="Displays the currently registered next movie.")
 async def next_movie(ctx):
     guild = utils.bot.get_guild(bot, GUILD)
     bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
     title, year, _ = utils.movie.get_next_movie()
     await bot_info_channel.send("We are watching {} ({})".format(title, year))
 
-@bot.command(name='fuck')
+@bot.command(name='fuck',
+             brief="Displays information regarding the next movie",
+             description="lol")
 async def random_next_movie_info(ctx):
     guild = utils.bot.get_guild(bot, GUILD)
     bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
@@ -177,7 +194,11 @@ async def random_next_movie_info(ctx):
     ]
     await bot_info_channel.send(random.choice(message))
 
-@bot.command(name='score')
+@bot.command(name='score',
+             brief="Displays a user's score for a given movie.",
+             description="Displays a user's score for a given movie \
+                          provided the user has already watched the movie.",
+             usage="\"<title>\" <username>")
 async def score(ctx, *args):
     guild = utils.bot.get_guild(bot, GUILD)
     bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
