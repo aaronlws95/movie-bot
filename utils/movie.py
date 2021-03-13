@@ -24,3 +24,12 @@ def get_movie(idx):
 def append_movie(title, year, date, chooser):
     with open(MOVIES_CSV, 'a') as f:
         f.write("{}|{}|{}|{}\n".format(title, year, date, chooser))
+
+def get_entry(title, member):
+    with open(ROOT + "/{}.csv".format(member.lower()), 'r') as f:
+        lines = f.read().splitlines()
+        for l in lines:
+            if l.split('|')[0] == title:
+                return l
+
+    return None

@@ -96,13 +96,13 @@ async def start_score(ctx, *args):
     # Finish
     await bot_info_channel.send("{} scoring has finished.".format(mode.capitalize()))
     for k,v in scores.items():
-        await scores_channel.send("**{0}**: {1:3.1f}".format(k, v))
+        await scores_channel.send("**{}**: {:.2f}".format(k, v))
 
     # Add data
     if mode == 'final':
         for p in participants:
             with open(utils.movie.ROOT + "/{}.csv".format(p.name.lower()), 'a') as f:
-                f.write("{}|{:3.1f}".format(title, scores[p.name]))
+                f.write("{}|{:.2f}".format(title, scores[p.name]))
 
 @bot.command(name='choose-next-movie')
 async def choose_next_movie(ctx, *args):
@@ -162,20 +162,41 @@ async def next_movie(ctx):
 async def random_next_movie_info(ctx):
     guild = utils.bot.get_guild(bot, GUILD)
     bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
-
     title, year, _ = utils.movie.get_next_movie()
-
     ia = imdb.IMDb()
     movie = ia.search_movie(title)[0]
     movie = ia.get_movie(movie.getID())
-
     message = [
         "{} is a {} {} movie".format(movie['title'], movie['year'], random.choice(movie['genres'])),
         "{} directed {}".format(random.choice(movie['directors']), movie['title']),
         "{} acted in {}".format(random.choice(movie['cast']), movie['title']),
         "{} is spoken in {}".format(random.choice(movie['languages']), movie['title'])
     ]
-
     await bot_info_channel.send(random.choice(message))
+
+@bot.command(name='score')
+async def score(ctx, title, name):
+    guild = utils.bot.get_guild(bot, GUILD)
+    bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
+
+    member = await utils.bot.get_member(bot_info_channel, name)
+    if not member:
+        return
+    member_name = member.name
+
+    ia = imdb.IMDb()
+    movie = ia.search_movie(title)
+    if not movie:
+        await bot_info_channel.send("Could not find {}".format(title))
+        return
+
+    imdb_title = movie[0]['title']
+
+    entry = utils.movie.get_entry(imdb_title, member_name)
+    if not entry:
+        await bot_info_channel.send("{} did not watch {}".format(member_name, imdb_title))
+        return
+
+    await bot_info_channel.send("{} rated {} {:.2f}/10.00".format(member_name, imdb_title, float(entry.split('|')[1])))
 
 bot.run(TOKEN)
