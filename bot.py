@@ -144,7 +144,7 @@ async def choose_next_movie(ctx, *args):
             if msg.content.upper() == 'Y':
                 utils.movie.update_next_movie(c['title'], c['year'], chooser)
                 await bot_info_channel.send("Yo we watching {}".format(c['long imdb title']))
-                return`
+                return
             elif msg.content.upper() == 'EXIT':
                 await bot_info_channel.send("Exiting search")
                 return
