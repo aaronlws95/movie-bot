@@ -33,13 +33,19 @@ def get_channel(guild, name, voice=False):
         raise ValueError("{} channel does not exist".format(name))
     return channel 
 
+async def get_member(channel, name):
+    member = discord.utils.get(channel.guild.members, name=name)
+    if not member:
+        await channel.send("I dont recognise {}".format(name))
+    return member
+
 def update_next_movie(title, year, chooser):
     with open(next_movie_csv, 'w') as f:
         f.write("{}|{}|{}".format(title, year, chooser))
 
 def get_next_movie():
     with open(next_movie_csv, 'r') as f:
-        lines = f.read().splitlines()[0]
+        line = f.read().splitlines()[0].split('|')
         # title, year, chooser
         return line[0], line[1], line[2]
 
@@ -76,11 +82,15 @@ async def start_score(ctx, *args):
     if len(args) > 1:
         participants = []
         for i in range(1, len(args)):
-            member = discord.utils.get(guild.members, name=args[i])
+            # Validate member
+            member = await get_member(general_channel, args[i])
             if member:
                 participants.append(member)
-            else:
-                await general_channel.send("I dont recognise {}".format(args[i]))
+            # member = discord.utils.get(guild.members, name=args[i])
+            # if member:
+            #     participants.append(member)
+            # else:
+            #     await general_channel.send("I dont recognise {}".format(args[i]))
         
         if not participants:
             await general_channel.send("Cannot find participants.")
@@ -142,6 +152,8 @@ async def choose_next_movie(ctx, *args):
         return
     if len(args) == 3:
         update_next_movie(args[0], args[1], args[2])
+
+    # Validate member
     name = args[0]
     member = discord.utils.get(guild.members, name=args[1])
     if member:
@@ -150,6 +162,7 @@ async def choose_next_movie(ctx, *args):
         await general_channel.send("Cannot find member {}".format(args[1]))
         return
 
+    # Search movie
     ia = imdb.IMDb()
     candidates = ia.search_movie(name)
     await general_channel.send("Searching for next movie")
