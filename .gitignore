@@ -9,3 +9,6 @@ __pycache__/
 
 # Google API credentials
 *.json
+
+# Data files
+/data

@@ -1,5 +1,7 @@
+import csv
 import os
 import random
+from pathlib import Path
 from datetime import datetime
 
 import imdb
@@ -25,7 +27,7 @@ async def on_ready():
     print(f'{bot.user.name} online')
 
 @bot.command(name='start-score',
-             brief="Handles the scoring process",
+             brief="Handle the scoring process",
              description="Run the command to start scoring. The bot will DM you for a response. Unless explicitly given, participants will be taken from whoever is in the General voice channel.",
              usage="<initial/final> [person1] [person2] ... [personN]")
 async def start_score(ctx, *args):
@@ -71,8 +73,8 @@ async def start_score(ctx, *args):
     if mode == 'initial':
         date = datetime.today().strftime('%d/%m/%Y')
         await scores_channel.send("**{}: {} ({})**".format(date, title, year))
-        utils.movie.append_movie(title, year, date, chooser)
-        utils.movie.append_csv_to_sheets("{}|{}|{}|{}".format(title, year, date, chooser), "Movies")
+        utils.sheets.append_movie(title, year, date, chooser)
+        utils.sheets.append_csv_to_sheets("{}|{}|{}|{}".format(title, year, date, chooser), "Movies")
     await scores_channel.send("**{}**".format(mode.capitalize()))
 
     # Scoring
@@ -107,12 +109,12 @@ async def start_score(ctx, *args):
     if mode == 'final':
         for p in participants:
             row_value = "{}|{:.2f}".format(title, scores[p.name])
-            utils.movie.append_csv_to_sheets(row_value, p.name)
+            utils.sheets.append_csv_to_sheets(row_value, p.name)
             with open(utils.movie.ROOT + "/{}.csv".format(p.name.lower()), 'a') as f:
                 f.write(row_value + "\n")
 
 @bot.command(name='choose-next-movie',
-             brief="Register next movie",
+             brief="Register the next movie",
              description="Adds the next movie to the database. The bot will help you find the movie unless you add the year to the command.",
              usage="\"<title>\" [year] <chooser>")
 async def choose_next_movie(ctx, *args):
@@ -168,7 +170,7 @@ async def choose_next_movie(ctx, *args):
     await bot_info_channel.send("No movie found, please manually add: !choose-next-movie \"<title>\" <year> <chooser>")
 
 @bot.command(name='next-movie',
-             brief="Displays the next movie",
+             brief="Display the next movie",
              description="Displays the currently registered next movie.")
 async def next_movie(ctx):
     guild = utils.bot.get_guild(bot, GUILD)
@@ -177,7 +179,7 @@ async def next_movie(ctx):
     await bot_info_channel.send("We are watching {} ({})".format(title, year))
 
 @bot.command(name='fuck',
-             brief="Displays information regarding the next movie",
+             brief="Display information regarding the next movie",
              description="lol")
 async def random_next_movie_info(ctx):
     guild = utils.bot.get_guild(bot, GUILD)
@@ -195,7 +197,7 @@ async def random_next_movie_info(ctx):
     await bot_info_channel.send(random.choice(message))
 
 @bot.command(name='score',
-             brief="Displays a user's score for a given movie.",
+             brief="Display a user's score for a given movie",
              description="Displays a user's score for a given movie \
                           provided the user has already watched the movie.",
              usage="\"<title>\" <username>")
@@ -228,5 +230,47 @@ async def score(ctx, *args):
         return
 
     await bot_info_channel.send("{} rated {} {:.2f}/10.00".format(member_name, imdb_title, float(entry.split('|')[1])))
+
+@bot.command(name='scrape-images',
+             brief="Download images",
+             description="Downloads images from the screenshots channel.")
+@commands.is_owner()
+async def scrape_images(ctx):
+    guild = utils.bot.get_guild(bot, GUILD)
+    bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
+    ss_channel = utils.bot.get_channel(guild, 'screenshots')
+
+    ss_path = "screenshots"
+    Path(ss_path).mkdir(parents=True, exist_ok=True)
+
+    await bot_info_channel.send("Downloading screenshots")
+
+    async for message in ss_channel.history(limit=None):
+        for attachment in message.attachments:
+            file_format = attachment.filename.split('.')[-1]
+            filename = str(attachment.id) + '.' + file_format
+            print(filename)
+            await attachment.save(ss_path + "/" + filename)
+
+@bot.command(name='backup',
+             brief="Export data to backup",
+             description="Exports data to Google Sheets")
+@commands.is_owner()
+async def backup_data(ctx):
+    guild = utils.bot.get_guild(bot, GUILD)
+    bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
+    await bot_info_channel.send("Backing up data")
+
+    csv_files = [str(p) for p in Path(utils.movie.ROOT).glob('*.csv')]
+    for csv_path in csv_files:
+        worksheet_name = csv_path.split('.')[-2].split('/')[-1].split('\\')[-1]
+        utils.sheets.export_csv_to_sheets(csv_path, worksheet_name, sheet_id=utils.sheets.SHEET_BACKUP)
+
+@bot.command(name='shutdown',
+             brief="Shut the bot down",
+             description="Shuts the bot down.")
+@commands.is_owner()
+async def shutdown(ctx):
+    await bot.logout()
 
 bot.run(TOKEN)
