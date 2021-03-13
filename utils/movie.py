@@ -1,3 +1,15 @@
+import csv
+import os
+
+import gspread
+from dotenv import load_dotenv
+from oauth2client.service_account import ServiceAccountCredentials
+
+# Environment
+load_dotenv()
+SHEET = os.getenv('GOOGLESHEET_ID')
+CREDENTIALS = os.getenv('GOOGLE_CREDENTIALS')
+
 # Paths
 ROOT = "data"
 MOVIES_CSV = ROOT + '/movies.csv'
@@ -33,3 +45,39 @@ def get_entry(title, member):
                 return l
 
     return None
+
+def get_sheet():
+    scope = ["https://spreadsheets.google.com/feeds",
+             "https://www.googleapis.com/auth/spreadsheets",
+             "https://www.googleapis.com/auth/drive.file",
+             "https://www.googleapis.com/auth/drive"]
+
+    credentials = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS + '.json', scope)
+    client = gspread.authorize(credentials)
+    return client.open_by_key(SHEET)
+
+def export_csv_to_sheets(csv_path, worksheet_name, delimiter='|'):
+    sh = get_sheet()
+
+    with open(csv_path, 'r') as f:
+        csv_file = list(csv.reader(f, delimiter=delimiter))
+
+    sh.values_update(
+        worksheet_name,
+        params={'valueInputOption': 'USER_ENTERED'},
+        body={'values': csv_file}
+    )
+
+def append_csv_to_sheets(values, worksheet_name, delimiter="|"):
+    sh = get_sheet()
+
+    values = [values.split(delimiter)]
+
+    try:
+        sh.values_append(
+            worksheet_name,
+            params={'valueInputOption': 'USER_ENTERED'},
+            body={'values': values}
+        )
+    except:
+        print("Error: Check your inputs")

@@ -68,6 +68,7 @@ async def start_score(ctx, *args):
         date = datetime.today().strftime('%d/%m/%Y')
         await scores_channel.send("**{}: {} ({})**".format(date, title, year))
         utils.movie.append_movie(title, year, date, chooser)
+        utils.movie.append_csv_to_sheets("{}|{}|{}|{}".format(title, year, date, chooser), "Movies")
     await scores_channel.send("**{}**".format(mode.capitalize()))
 
     # Scoring
@@ -101,8 +102,10 @@ async def start_score(ctx, *args):
     # Add data
     if mode == 'final':
         for p in participants:
+            row_value = "{}|{:.2f}".format(title, scores[p.name])
+            utils.movie.append_csv_to_sheets(row_value, p.name.lower())
             with open(utils.movie.ROOT + "/{}.csv".format(p.name.lower()), 'a') as f:
-                f.write("{}|{:.2f}".format(title, scores[p.name]))
+                f.write(row_value + "\n")
 
 @bot.command(name='choose-next-movie')
 async def choose_next_movie(ctx, *args):
