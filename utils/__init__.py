@@ -1,3 +1,3 @@
-from . import bot
-from . import movie
+from . import discord
+from . import csv
 from . import sheets

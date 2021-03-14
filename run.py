@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 
 import utils
 
+
 # Environment
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -20,11 +21,22 @@ GUILD = os.getenv('DISCORD_GUILD')
 help_command = commands.DefaultHelpCommand(no_category = 'Commands')
 intents = discord.Intents.default()
 intents.members = True
+intents.messages = True
 bot = commands.Bot(command_prefix='!', intents=intents, help_command=help_command)
+
 
 @bot.event
 async def on_ready():
     print(f'{bot.user.name} online')
+
+
+@bot.event
+async def on_message(message):
+    if isinstance(message.channel, discord.channel.TextChannel):
+        if message.channel.name == 'screenshots':
+            await utils.discord.download_attachments(message.attachments)
+    await bot.process_commands(message)
+
 
 @bot.command(name='start-score',
              brief="Handle the scoring process",
@@ -41,17 +53,17 @@ async def start_score(ctx, *args):
     mode = args[0].lower()
 
     # Setup guild and channels
-    guild = utils.bot.get_guild(bot, GUILD)
-    bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
-    scores_channel = utils.bot.get_channel(guild, 'scores')
-    general_voice_channel = utils.bot.get_channel(guild, 'General', voice=True)
+    guild = utils.discord.get_guild(bot, GUILD)
+    bot_info_channel = utils.discord.get_channel(guild, 'bot-info')
+    scores_channel = utils.discord.get_channel(guild, 'scores')
+    general_voice_channel = utils.discord.get_channel(guild, 'General', voice=True)
 
     # Participants
     if len(args) > 1:
         participants = []
         for i in range(1, len(args)):
             # Validate member
-            member = await utils.bot.get_member(bot_info_channel, args[i])
+            member = await utils.discord.get_member(bot_info_channel, args[i])
             if member:
                 participants.append(member)
 
@@ -63,18 +75,18 @@ async def start_score(ctx, *args):
 
         if not participants:
             await bot_info_channel.send(
-                "Cannot find participants in voice channel. \
-                    Try !start-score <person1> <person2> ... <personN>")
+                "Cannot find participants in voice channel. Try !start-score <person1> <person2> ... <personN>")
             return
 
     # Start
     await bot_info_channel.send("{} scoring has started".format(mode.capitalize()))
-    title, year, chooser = utils.movie.get_next_movie()
+    title, year, chooser = utils.csv.get_next_movie()
     if mode == 'initial':
         date = datetime.today().strftime('%d/%m/%Y')
         await scores_channel.send("**{}: {} ({})**".format(date, title, year))
-        utils.sheets.append_movie(title, year, date, chooser)
-        utils.sheets.append_csv_to_sheets("{}|{}|{}|{}".format(title, year, date, chooser), "Movies")
+        sh = utils.sheets.get_sheet(utils.sheets.SHEET)
+        utils.csv.append_movie(title, year, date, chooser)
+        utils.sheets.append_csv_to_sheets(sh, "{}|{}|{}|{}".format(title, year, date, chooser), "Movies")
     await scores_channel.send("**{}**".format(mode.capitalize()))
 
     # Scoring
@@ -107,11 +119,13 @@ async def start_score(ctx, *args):
 
     # Add data
     if mode == 'final':
+        sh = utils.sheets.get_sheet(utils.sheets.SHEET)
         for p in participants:
             row_value = "{}|{:.2f}".format(title, scores[p.name])
-            utils.sheets.append_csv_to_sheets(row_value, p.name)
-            with open(utils.movie.ROOT + "/{}.csv".format(p.name.lower()), 'a') as f:
+            utils.sheets.append_csv_to_sheets(sh, row_value, p.name)
+            with open(utils.csv.CSV_PATH + "/{}.csv".format(p.name.lower()), 'a') as f:
                 f.write(row_value + "\n")
+
 
 @bot.command(name='choose-next-movie',
              brief="Register the next movie",
@@ -119,24 +133,24 @@ async def start_score(ctx, *args):
              usage="\"<title>\" [year] <chooser>")
 async def choose_next_movie(ctx, *args):
     # Setup guild and channels
-    guild = utils.bot.get_guild(bot, GUILD)
-    bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
+    guild = utils.discord.get_guild(bot, GUILD)
+    bot_info_channel = utils.discord.get_channel(guild, 'bot-info')
 
     # Args
     if len(args) < 2:
         await ctx.send("Usage: !choose-next-movie \"<title>\" <chooser>")
         return
     if len(args) == 3:
-        member = await utils.bot.get_member(bot_info_channel, args[1])
+        member = await utils.discord.get_member(bot_info_channel, args[1])
         if member:
             chooser = member.name
         else:
             return
-        utils.movie.update_next_movie(args[0], args[1], chooser)
+        utils.csv.update_next_movie(args[0], args[1], chooser)
         return
 
     # Validate member
-    member = await utils.bot.get_member(bot_info_channel, args[1])
+    member = await utils.discord.get_member(bot_info_channel, args[1])
     if member:
         chooser = member.name
     else:
@@ -160,7 +174,7 @@ async def choose_next_movie(ctx, *args):
             await bot_info_channel.send("Did you mean {}?".format(c['long imdb title']))
             msg = await bot.wait_for('message', check=check)
             if msg.content.upper() == 'Y':
-                utils.movie.update_next_movie(c['title'], c['year'], chooser)
+                utils.csv.update_next_movie(c['title'], c['year'], chooser)
                 await bot_info_channel.send("Yo we watching {}".format(c['long imdb title']))
                 return
             elif msg.content.upper() == 'EXIT':
@@ -169,22 +183,24 @@ async def choose_next_movie(ctx, *args):
 
     await bot_info_channel.send("No movie found, please manually add: !choose-next-movie \"<title>\" <year> <chooser>")
 
+
 @bot.command(name='next-movie',
              brief="Display the next movie",
              description="Displays the currently registered next movie.")
 async def next_movie(ctx):
-    guild = utils.bot.get_guild(bot, GUILD)
-    bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
-    title, year, _ = utils.movie.get_next_movie()
+    guild = utils.discord.get_guild(bot, GUILD)
+    bot_info_channel = utils.discord.get_channel(guild, 'bot-info')
+    title, year, _ = utils.csv.get_next_movie()
     await bot_info_channel.send("We are watching {} ({})".format(title, year))
+
 
 @bot.command(name='fuck',
              brief="Display information regarding the next movie",
              description="lol")
 async def random_next_movie_info(ctx):
-    guild = utils.bot.get_guild(bot, GUILD)
-    bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
-    title, year, _ = utils.movie.get_next_movie()
+    guild = utils.discord.get_guild(bot, GUILD)
+    bot_info_channel = utils.discord.get_channel(guild, 'bot-info')
+    title, year, _ = utils.csv.get_next_movie()
     ia = imdb.IMDb()
     movie = ia.search_movie(title)[0]
     ia.update(movie)
@@ -196,14 +212,14 @@ async def random_next_movie_info(ctx):
     ]
     await bot_info_channel.send(random.choice(message))
 
+
 @bot.command(name='score',
              brief="Display a user's score for a given movie",
-             description="Displays a user's score for a given movie \
-                          provided the user has already watched the movie.",
+             description="Displays a user's score for a given movie provided the user has already watched the movie.",
              usage="\"<title>\" <username>")
 async def score(ctx, *args):
-    guild = utils.bot.get_guild(bot, GUILD)
-    bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
+    guild = utils.discord.get_guild(bot, GUILD)
+    bot_info_channel = utils.discord.get_channel(guild, 'bot-info')
 
     if len(args) != 2:
         await bot_info_channel.send("Usage: !score \"<title>\" <username>")
@@ -211,7 +227,7 @@ async def score(ctx, *args):
     title = args[0]
     name = args[1]
 
-    member = await utils.bot.get_member(bot_info_channel, name)
+    member = await utils.discord.get_member(bot_info_channel, name)
     if not member:
         return
     member_name = member.name
@@ -224,47 +240,42 @@ async def score(ctx, *args):
 
     imdb_title = movie[0]['title']
 
-    entry = utils.movie.get_entry(imdb_title, member_name)
+    entry = utils.csv.get_entry(imdb_title, member_name)
     if not entry:
         await bot_info_channel.send("{} did not watch {}".format(member_name, imdb_title))
         return
 
     await bot_info_channel.send("{} rated {} {:.2f}/10.00".format(member_name, imdb_title, float(entry.split('|')[1])))
 
+
 @bot.command(name='scrape-images',
              brief="Download images",
              description="Downloads images from the screenshots channel.")
 @commands.is_owner()
 async def scrape_images(ctx):
-    guild = utils.bot.get_guild(bot, GUILD)
-    bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
-    ss_channel = utils.bot.get_channel(guild, 'screenshots')
-
-    ss_path = "screenshots"
-    Path(ss_path).mkdir(parents=True, exist_ok=True)
-
+    guild = utils.discord.get_guild(bot, GUILD)
+    bot_info_channel = utils.discord.get_channel(guild, 'bot-info')
+    ss_channel = utils.discord.get_channel(guild, 'screenshots')
     await bot_info_channel.send("Downloading screenshots")
-
     async for message in ss_channel.history(limit=None):
-        for attachment in message.attachments:
-            file_format = attachment.filename.split('.')[-1]
-            filename = str(attachment.id) + '.' + file_format
-            print(filename)
-            await attachment.save(ss_path + "/" + filename)
+        await utils.discord.download_attachments(message.attachments)
+
 
 @bot.command(name='backup',
              brief="Export data to backup",
-             description="Exports data to Google Sheets")
+             description="Exports movie record and scores to Google Sheets")
 @commands.is_owner()
-async def backup_data(ctx):
-    guild = utils.bot.get_guild(bot, GUILD)
-    bot_info_channel = utils.bot.get_channel(guild, 'bot-info')
+async def backup(ctx):
+    guild = utils.discord.get_guild(bot, GUILD)
+    bot_info_channel = utils.discord.get_channel(guild, 'bot-info')
     await bot_info_channel.send("Backing up data")
 
-    csv_files = [str(p) for p in Path(utils.movie.ROOT).glob('*.csv')]
+    sh = utils.sheets.get_sheet(utils.sheets.SHEET_BACKUP)
+    csv_files = [str(p) for p in Path(utils.csv.CSV_PATH).glob('*.csv')]
     for csv_path in csv_files:
         worksheet_name = csv_path.split('.')[-2].split('/')[-1].split('\\')[-1]
-        utils.sheets.export_csv_to_sheets(csv_path, worksheet_name, sheet_id=utils.sheets.SHEET_BACKUP)
+        utils.sheets.export_csv_to_sheets(sh, csv_path, worksheet_name)
+
 
 @bot.command(name='shutdown',
              brief="Shut the bot down",

@@ -5,11 +5,13 @@ import gspread
 from dotenv import load_dotenv
 from oauth2client.service_account import ServiceAccountCredentials
 
+
 # Environment
 load_dotenv()
 CREDENTIALS = os.getenv('GOOGLE_CREDENTIALS')
 SHEET = os.getenv('GOOGLESHEET_ID')
 SHEET_BACKUP = os.getenv('GOOGLESHEET_BACKUP_ID')
+
 
 def get_sheet(sheet_id):
     scope = ["https://spreadsheets.google.com/feeds",
@@ -21,9 +23,8 @@ def get_sheet(sheet_id):
     client = gspread.authorize(credentials)
     return client.open_by_key(sheet_id)
 
-def export_csv_to_sheets(csv_path, worksheet_name, delimiter='|', sheet_id=SHEET):
-    sh = get_sheet(sheet_id)
 
+def export_csv_to_sheets(sh, csv_path, worksheet_name, delimiter='|'):
     with open(csv_path, 'r') as f:
         csv_file = list(csv.reader(f, delimiter='|'))
 
@@ -41,9 +42,8 @@ def export_csv_to_sheets(csv_path, worksheet_name, delimiter='|', sheet_id=SHEET
         body={'values': csv_file}
     )
 
-def append_csv_to_sheets(values, worksheet_name, delimiter="|", sheet_id=SHEET):
-    sh = get_sheet(sheet_id)
 
+def append_csv_to_sheets(sh, values, worksheet_name, delimiter="|"):
     values = [values.split(delimiter)]
 
     try:
