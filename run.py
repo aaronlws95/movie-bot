@@ -223,6 +223,7 @@ async def score(ctx, *args):
 
     if len(args) != 2:
         await bot_info_channel.send("Usage: !score \"<title>\" <username>")
+        return
 
     title = args[0]
     name = args[1]
